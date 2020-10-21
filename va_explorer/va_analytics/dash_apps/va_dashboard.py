@@ -72,7 +72,7 @@ def load_lookup_dicts():
     # colorscale used for map
     lookup["map_colorscale"] = [
          (0.0, 'rgb(255,255,255)'),
-         (0.001, 'rgb(0, 147, 146)'),
+         (1e-6, 'rgb(0, 147, 146)'),
          (0.167, 'rgb(0, 147, 146)'),
          (0.167, 'rgb(57, 177, 133)'),
          (0.333, 'rgb(57, 177, 133)'),
@@ -1028,7 +1028,9 @@ def generate_map_data(va_df, chosen_geojson, view_level="district",\
         map_df = geo_df.merge(map_df, how=join_type, on=view_level)
         
         # fill NAs with 0s and rename empty tooltips to "No Data"
-        map_df["tooltip"].fillna("No Data", inplace=True)
+        #map_df["tooltip"].fillna("No Data", inplace=True)
+        map_df["tooltip"] = map_df.apply(lambda row: f"<b>{row[view_level]}</b><br>No Data" \
+              if pd.isnull(row["tooltip"]) else row["tooltip"], axis=1)
         map_df.fillna(0, inplace=True)
 
         return map_df
