@@ -163,6 +163,7 @@ GEOJSON = load_geojson_data(json_file=f"{JSON_DIR}/{JSON_FILE}")
 
 # ============ VA Data =================
 def load_va_data(geographic_levels=None):
+    np.random.seed(23)
     return_dict = {"data": pd.DataFrame()}
 
     valid_vas = VerbalAutopsy.objects.exclude(causes=None).prefetch_related("location").prefetch_related("causes")
@@ -855,10 +856,11 @@ def update_choropleth( va_data, timeframe, map_metric="Total Deaths", view_level
     granularity = INITIAL_GRANULARITY
     location_types = json.loads(location_types)
     include_no_datas = True
+    tmp_val = dict()
     figure = go.Figure()
+    border_thickness = .25 # thickness of borders on map
     # name of column to plot
     data_value = "age_mean" if len(re.findall("[mM]ean", map_metric)) > 0 else "age_count"
-    tmp_val = dict()
     
     if plot_data.size > 0:
         timeframe = timeframe.lower()
@@ -886,32 +888,38 @@ def update_choropleth( va_data, timeframe, map_metric="Total Deaths", view_level
                     g for g in geojson["features"] if g["properties"]["area_name"] in plot_regions
                 ]
                 chosen_region = plot_data[granularity].unique()[0]
-                #chosen_geo = [g for g in geojson["features"] if g["properties"]["area_name"] == chosen_region]
+                chosen_geo = [g for g in geojson["features"] if g["properties"]["area_name"] == chosen_region]
+                tmp_val = chosen_geo
                 # if adjacent_ids specified, plot them on map first
                 plot_ids = filter_dict.get("plot_ids", [])
                 if len(plot_ids) > 0:
                     adjacent_data = (all_data
                                      .iloc[plot_ids, :]
                                      .loc[all_data[granularity] != chosen_region])
+                                                           
+                    # background plotting - adjacent regions
                     adjacent_map_df = generate_map_data(adjacent_data, plot_geos, granularity,\
                                                         zoom_in, map_metric)
                     figure = add_trace_to_map(figure, adjacent_map_df, geojson,\
                                               z_col=data_value, location_col=granularity)
                     # only plot non-empty regions in main layer so as not to hide secondary layer
-                    include_no_datas = False 
+                    include_no_datas = False                   
+                    border_thickness = 2 * border_thickness
 
         if map_metric not in ["Total Deaths", "Mean Age of Death"]:
             plot_data = plot_data[plot_data["cause"] == map_metric]  
             
         # if user has not chosen a view level or its disabled, default to using granularity
         view_level = view_level if len(view_level) > 0 else granularity
-        tmp_val["include_no_datas"] = include_no_datas
-        tmp_val["view_level"] = view_level
-        tmp_val["granularity"] = granularity
-        tmp_val["zoom_in"] = zoom_in
+        
         # get map tooltips to match view level (disstrict or province)
         map_df = generate_map_data(plot_data, plot_geos, view_level, zoom_in, map_metric, include_no_datas)
-
+        
+        highlight_region = (map_df.shape[0] == 1)
+        if highlight_region: 
+            # increse border thickness to highlight selcted region
+            border_thickness = 3 * border_thickness
+            
         figure.add_trace(go.Choropleth(
                 locations=map_df[view_level],
                 z=map_df[data_value].astype(float),
@@ -923,7 +931,7 @@ def update_choropleth( va_data, timeframe, map_metric="Total Deaths", view_level
                 hoverinfo="text",
                 autocolorscale=False,
                 marker_line_color="black",  # line markers between states
-                marker_line_width=0.25,
+                marker_line_width=border_thickness,
                 colorbar=dict(
                     title="{} by {}".format(
                         map_metric.capitalize(), granularity.capitalize()
@@ -981,8 +989,8 @@ def add_trace_to_map(figure, trace_data, geojson, trace_type=go.Choropleth, feat
             hovertext=trace_data[tooltip_col],
             hoverinfo="text", 
             colorscale = [(0.0, 'rgb(255,255,255)'),
-                          (0.001, 'rgb(206,206,206)'),
-                          (1.0, 'rgb(206,206,206)')], 
+                          (0.001, 'rgb(230,230,230)'),
+                          (1.0, 'rgb(230,230,230)')], 
             marker_line_color="gray",
             marker_line_width=0.25,
             showscale=False
