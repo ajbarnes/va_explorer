@@ -827,10 +827,10 @@ def reset_view_value(is_disabled=False):
 
 # ====================Map Logic===================================#
 @app.callback(
-    [
+#    [
         Output(component_id="choropleth-container", component_property="children"),
-        Output(component_id="bounds", component_property="children")   
-    ],
+#        Output(component_id="bounds", component_property="children")   
+#    ],
     
     [
         Input(component_id="va_data", component_property="children"),
@@ -969,7 +969,7 @@ def update_choropleth( va_data, timeframe, map_metric="Total Deaths", view_level
 
     return_value = dcc.Graph(id="choropleth", figure=figure, config=config) 
 
-    return return_value, json.dumps(tmp_val)
+    return return_value#    , json.dumps(tmp_val)
 
 # ==========Helper method to plot adjacent regions on map =====#
 def add_trace_to_map(figure, trace_data, geojson, trace_type=go.Choropleth, feature_id=None, \
