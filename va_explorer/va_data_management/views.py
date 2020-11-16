@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.forms.models import model_to_dict
+from va_explorer.utils.coding import run_coding_algorithms as run_algorithms
 from .models import VerbalAutopsy, CauseOfDeath, CauseCodingIssue, Location
 from .forms import VerbalAutopsyForm
 
@@ -58,3 +59,12 @@ def reset(request, id):
     if earliest and len(latest.diff_against(earliest).changes) > 0:
         earliest.instance.save()
     return redirect("va_data_management:show", id=id)
+
+# TODO: This endpoint is intended for demonstration purposes, and should be removed once in a production footing
+def run_coding_algorithms(request):
+    run_algorithms()
+    return redirect("va_data_management:index")
+
+# TODO: This endpoint is intended for demonstration purposes, and should be removed once in a production footing
+def import_from_odk(request):
+    return redirect("va_data_management:index")
