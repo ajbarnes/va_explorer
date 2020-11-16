@@ -18,18 +18,83 @@ import zipfile
 from io import BytesIO
 
 
+#======Main utilities=============#
+## Demo files
+# xml_file = "va_explorer/va_explorer/demo/va_xml_template.xml"
+# sample_csv = "va_explorer/va_explorer/demo/sample_records_to_load_into_odk.csv"
+def upload_sample_to_odk(form_template_file, sample_csv_file, token=None,\
+                                  project_id=None, project_name=None, domain_name="127.0.0.1"):
+    assert(project_name or project_id)
+    if not token:
+        print("No token provided. Please provide credentials to obtain auth token.")
+        token = get_odk_login_token(domain_name)
+    
+    # build forms
+    va_forms = generate_responses_from_sample(form_template_file, sample_csv_file)
+    
+    # submit forms
+    submit_forms_to_odk(va_forms, domain_name=domain_name, project_name=project_name,\
+                              project_id=project_id, token=token)
+    
+    #=======download form responses from odk===#
+# TODO ### CHANGE THIS BACK TO project_id=None AFTER DEMO
+def download_responses(form_url=None, domain_name="127.0.0.1", \
+                        project_name='zambia-test', project_id=None, token=None, fmt='csv', export=False):
+    forms = None
+    if not token:
+        token = get_odk_login_token(domain_name)
+        
+
+    assert(form_url or ((project_id or project_name) and domain_name))
+    
+    if not form_url:
+        form_url = get_odk_form_url(domain_name=domain_name, project_id=project_id,\
+                                    project_name=project_name, token=token)
+    if fmt == 'json':
+        form_download_url = re.sub('/versions/.*?\.xml', '.svc/Submissions', form_url)
+        response = requests.get(form_download_url,  headers=token, verify=False).json()
+        if 'value' in response.keys():
+            forms = response['value']
+            print(f"downloaded {len(forms)} forms from odk")
+    elif fmt == 'csv':
+        form_download_url = re.sub('/versions/.*?\.xml', '/submissions.csv.zip', form_url)
+        res = requests.get(form_download_url, headers=token, verify=False)
+        filebytes = BytesIO(res.content)
+        myzipfile = zipfile.ZipFile(filebytes)
+        csv_file = myzipfile.namelist()[0]
+        forms = pd.read_csv(BytesIO(myzipfile.open(csv_file).read()))
+        forms.columns = [c.split('-')[-1] for c in forms.columns]
+
+    else:
+        raise(TypeError("Please provide valid format (fmt): (csv, json)"))
+        
+    if export:
+        fname = f"../va_explorer_resources/odk_download.{fmt}"
+        if fmt == 'json':
+            with open(fname, "w") as out:
+                out.write(json.dumps(forms))
+        else:
+            forms.to_csv(fname, index=False)
+        print(f"downloaded odk data and wrote to {fname}")
+   
+    return forms
+
+
+
+#=============Authentication=====================#
+# TODO: FIND BETTER SOLUTION FOR DEFAULT CREDENTIALS    
 # get a token to authenticate future odk operations
     #sample_res = {'token': '90SzQyN1wpj1eECuMCANXnNhsOpVD!qrKDoVy584mNK4r1GiYwBKuQfWEwYRCzC!',
     # 'csrf': '5L36Y5OsNtxrxoJZBm5AzdXSc$hVqhQlMhEqGjGulG8g6xqOk$FvlMa$kELTRuC5',
     # 'expiresAt': '2020-11-13T02:23:02.953Z',
     # 'createdAt': '2020-11-12T02:23:02.956Z'}
     # sample sessions url: #url = 'https://private-anon-f8a973882b-odkcentral.apiary-mock.com/v1/sessions'
-def get_odk_login_token(domain_name="127.0.0.1", email=None, password=None, return_header=True):
+def get_odk_login_token(domain_name="127.0.0.1", email="admin@example.com", password="Password1", return_header=True):
     url = f"https://{domain_name}/v1/sessions"
-    if not email:
-        email = input("email address: ")
-    if not password:
-        password = input("password: ")
+#    if not email:
+#        email = input("email address: ")
+#    if not password:
+#        password = input("password: ")
     creds = json.dumps({"email": email, "password": password}) 
     headers = {"Content-Type": "application/json"}
     res = requests.post(url, headers=headers, data=creds, verify=False)
@@ -57,6 +122,8 @@ def get_odk_project_id(project_name, domain_name="127.0.0.1", token=None):
         project_id = project_lookup['id'].values[0]
     return project_id
 
+#=============Form informationß=====================#
+
 # download a project's form xml template
 def get_odk_form_url(domain_name="127.0.0.1", token=None, project_id=None, project_name=None):
     base_url = f"https://{domain_name}/v1"
@@ -83,7 +150,7 @@ def get_odk_form_url(domain_name="127.0.0.1", token=None, project_id=None, proje
         form_url = f"{project_forms_url}/{form_string}"
     return form_url
 
-def download_odk_form(odk_form_url, token=None):
+def download_odk_form(odk_form_url, domain_name='127.0.0.1', token=None):
     if not token:
         print("No token provided. Please provide credentials to obtain auth token.")
         token = get_odk_login_token(domain_name)
@@ -100,31 +167,32 @@ def download_odk_form(odk_form_url, token=None):
 # generate N forms based on form template and pre-existing csv responses. 
     # ex. form template file: va_xml_template.xml
     # ex. csv_file: 'cod_analysis/new_va_sample.csv'
-def generate_sample_form_responses(form_template_file, sample_csv_file, N=100, randomize=True):
+def generate_responses_from_sample(form_template_file, sample_csv_file, randomize=False, N=100):
     xml = open(form_template_file, 'r').read()
     sample_va_df = pd.read_csv(sample_csv_file)
-    
+        
     # if columns start with -, remove them for now. Will add back downstream
     sample_va_df.columns = [re.sub('^\-', '', c) for c in sample_va_df.columns]
     
-    fields  = {
-        "age": "ageInYears",
-        "sex": "Id10019",
-        "place of death": "Id10058",
-        "date": "Id10023"
-    }
-    
-    # generate N records of form data from sample. If randomize=false, just simple
-    # random selection with replacement. Otherwise, randomize various fields including:
-    # age, gender, place of death
-    
-    va_form_df = sample_va_df.sample(N, replace=True).reset_index()
-    
+
+    # If randomize is True, generate random sample of size N. Otherwise, use all provided records 
     if randomize:
+        va_form_df = sample_va_df.sample(N, replace=True).reset_index()
+
+        fields  = {
+            "age": "ageInYears",
+            "sex": "Id10019",
+            "place of death": "Id10058",
+            "date": "Id10023"
+        }
+    
         for field in fields.keys():
             field_id = fields[field]
             va_form_df[field_id] = choice(sample_va_df[field_id], replace=True, size=N)
-
+    
+    else:
+        va_form_df = sample_va_df
+    
     # convert each form's data into dictionary
     recs = va_form_df.to_dict(orient='index')
     # create xml form for each data record
@@ -212,7 +280,7 @@ def submit_forms_to_odk(form_objs, form_submit_url=None, domain_name="127.0.0.1"
         raise(Exception("No token provided. Please generate one with get_odk_login_token(domain_name)."))
     
     assert(form_submit_url or ((project_id or project_name) and domain_name))
-    if not form_submit_url:
+    if not form_submit_url: 
         form_url = get_odk_form_url(domain_name=domain_name, project_id=project_id,\
                                     project_name=project_name, token=token)
         form_submit_url = re.sub('versions/.*?\.xml', 'submissions', form_url)
@@ -229,50 +297,7 @@ def submit_form_to_odk(form_submit_url, form_xml, token=None):
     return requests.post(form_submit_url, headers=headers, data=form_xml, verify=False)
 
 
-#=======download form responses from odk===#
-# TODO ### CHANGE THIS BACK TO project_id=None AFTER DEMO
-def download_responses(form_url=None, domain_name="127.0.0.1", \
-                        project_name=None, project_id=2, token=None, fmt='csv', export=False):
-    forms = None
-    if not token:
-        # TODO #### REMOVE THIS LINE AFTER DEMO #### 
-        token = get_odk_login_token(email='admin@example.com', password='Password1')
-        #raise(Exception("No token provided. Please generate one with get_odk_login_token(domain_name)."))
-        
 
-    assert(form_url or ((project_id or project_name) and domain_name))
-    
-    if not form_url:
-        form_url = get_odk_form_url(domain_name=domain_name, project_id=2,\
-                                    project_name=project_name, token=token)
-    if fmt == 'json':
-        form_download_url = re.sub('/versions/.*?\.xml', '.svc/Submissions', form_url)
-        response = requests.get(form_download_url,  headers=token, verify=False).json()
-        if 'value' in response.keys():
-            forms = response['value']
-            print(f"downloaded {len(forms)} forms from odk")
-    elif fmt == 'csv':
-        form_download_url = re.sub('/versions/.*?\.xml', '/submissions.csv.zip', form_url)
-        res = requests.get(form_download_url, headers=token, verify=False)
-        filebytes = BytesIO(res.content)
-        myzipfile = zipfile.ZipFile(filebytes)
-        csv_file = myzipfile.namelist()[0]
-        forms = pd.read_csv(BytesIO(myzipfile.open(csv_file).read()))
-        forms.columns = [c.split('-')[-1] for c in forms.columns]
-
-    else:
-        raise(TypeError("Please provide valid format (fmt): (csv, json)"))
-        
-    if export:
-        fname = f"../va_explorer_resources/odk_download.{fmt}"
-        if fmt == 'json':
-            with open(fname, "w") as out:
-                out.write(json.dumps(forms))
-        else:
-            forms.to_csv(fname, index=False)
-        print(f"downloaded odk data and wrote to {fname}")
-   
-    return forms
 
 
 
