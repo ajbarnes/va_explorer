@@ -43,3 +43,10 @@ Command line: python manage.py pull_records_from_odk --project_name "Verbal Auto
 Coding records:
 
 Press the "Run Coding Algorithms" button on the Data Management page
+
+If you need to reset postgres DB:
+
+docker-compose rm postgres
+docker-compose build postgres
+docker-compose exec service odk-cmd --email admin@example.com user-create
+docker-compose exec service odk-cmd --email admin@example.com user-promote
