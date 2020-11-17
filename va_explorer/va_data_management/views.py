@@ -87,6 +87,5 @@ def import_from_odk(request):
     odk_records = odk.download_responses(domain_name=domain_name, project_name=project_name, fmt='csv', export=False)
     # TODO: For demo purposes we reverse the order; determine if that's needed in production
     odk_records = odk_records.reindex(index=odk_records.index[::-1]).reset_index(drop=True)
-    breakpoint()
     load_records_from_dataframe(odk_records)
     return redirect("va_data_management:index")
