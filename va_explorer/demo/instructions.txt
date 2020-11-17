@@ -16,9 +16,30 @@ Steps to get ODK Central docker containers working:
 	
 Steps to create odk central project
 	# create admin account:	
-         docker-compose exec service odk-cmd --email admin@example.com user-create
+        docker-compose exec service odk-cmd --email admin@example.com user-create
 	docker-compose exec service odk-cmd --email admin@example.com user-promote
 	# log into gui (should be accesible at https://localhost)
 	# create new project (keep track of the project name. I called it zambia-test)
 	# upload VA form (I used WHO 2016 - ignored the warning the system throws)
         # publish draft
+
+Uploading the ODX XLS file:
+
+Create an ODK project named "Verbal Autopsy Demo"
+
+For now use WHOVA2016_v1_5_2_XLS_form_for_ODK.xlsx, the Zambia-specific form is not currently working
+
+Uploading data:
+
+python manage.py shell
+from va_explorer.utils.odk_api import upload_sample_to_odk;
+upload_sample_to_odk("va_explorer/demo/va_xml_template.xml", "va_explorer/demo/sample_records_to_load_into_odk.csv", project_name="Verbal Autopsy Demo")
+
+Moving records:
+
+Press the "Import VAs from ODK" button on the Data Management page
+Command line: python manage.py pull_records_from_odk --project_name "Verbal Autopsy Demo"
+
+Coding records:
+
+Press the "Run Coding Algorithms" button on the Data Management page
