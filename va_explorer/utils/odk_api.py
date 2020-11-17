@@ -239,7 +239,7 @@ class va_form(object):
                 children = list(current_node)
                 if not children:
                     question = f"-{current_node.tag}"
-                    question_value = rec.get(question, None)
+                    question_value = rec.get(question, "")
                     #question_value = rec[question]
                     if question_value:
                         if prnt: print((type(question_value), question, question_value))
