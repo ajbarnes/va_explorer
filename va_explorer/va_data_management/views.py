@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect
 from django.forms.models import model_to_dict
 from va_explorer.utils.coding import run_coding_algorithms as run_algorithms
+from va_explorer.utils import odk_api as odk
+from va_explorer.utils.data_import import load_records_from_dataframe
 from .models import VerbalAutopsy, CauseOfDeath, CauseCodingIssue, Location
 from .forms import VerbalAutopsyForm
 
@@ -67,4 +69,9 @@ def run_coding_algorithms(request):
 
 # TODO: This endpoint is intended for demonstration purposes, and should be removed once in a production footing
 def import_from_odk(request):
+    # TODO: Pull these options from a configuration file
+    domain_name = "127.0.0.1"
+    project_name = "Verbal Autopsy Demo"
+    odk_records = odk.download_responses(domain_name=domain_name, project_name=project_name, fmt='csv', export=False)
+    load_records_from_dataframe(odk_records)
     return redirect("va_data_management:index")
