@@ -37,7 +37,7 @@ def upload_sample_to_odk(form_template_file, sample_csv_file, token=None,\
                               project_id=project_id, token=token)
     
     #=======download form responses from odk===#
-# TODO ### CHANGE THIS BACK TO project_id=None AFTER DEMO
+# TODO ### CHANGE THIS BACK TO project_name=None AFTER DEMO
 def download_responses(form_url=None, domain_name="127.0.0.1", \
                         project_name='zambia-test', project_id=None, token=None, fmt='csv', export=False):
     forms = None
@@ -173,6 +173,7 @@ def generate_responses_from_sample(form_template_file, sample_csv_file, randomiz
         
     # if columns start with -, remove them for now. Will add back downstream
     sample_va_df.columns = [re.sub('^\-', '', c) for c in sample_va_df.columns]
+    sample_va_df.columns = [f"-{c.split('-')[-1]}" for c in sample_va_df.columns]
     
 
     # If randomize is True, generate random sample of size N. Otherwise, use all provided records 
@@ -239,6 +240,7 @@ class va_form(object):
                 if not children:
                     question = f"-{current_node.tag}"
                     question_value = rec.get(question, None)
+                    #question_value = rec[question]
                     if question_value:
                         if prnt: print((type(question_value), question, question_value))
                         if type(question_value) is str:
